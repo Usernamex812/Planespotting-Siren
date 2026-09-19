@@ -34,7 +34,7 @@ body {
 }
 
 h1 {
-  margin: 0 0 15px 0;
+  margin: 0 0 15px;
   font-size: 28px;
 }
 
@@ -97,6 +97,10 @@ button {
   font-size: 17px;
 }
 
+.approaching {
+  border-left: 4px solid orange;
+}
+
 .alertAircraft {
   border: 2px solid red;
   background: #351010;
@@ -122,21 +126,6 @@ button {
 .credit a {
   color: #aaa;
 }
-
-/* Aircraft icons */
-
-.planeIcon {
-  font-size: 22px;
-  text-align: center;
-  line-height: 25px;
-}
-
-.alertPlaneIcon {
-  font-size: 27px;
-  text-align: center;
-  line-height: 30px;
-  filter: drop-shadow(0 0 5px red);
-}
 </style>
 </head>
 
@@ -152,7 +141,7 @@ button {
 
 <label>
 Alert radius:
-<b><span id="radiusText">250</span> NM</b>
+<b><span id="radiusText">25</span> NM</b>
 </label>
 
 <input
@@ -160,7 +149,7 @@ Alert radius:
   type="range"
   min="1"
   max="250"
-  value="250"
+  value="25"
 >
 
 </div>
@@ -224,12 +213,23 @@ AvioADSB
 const WORKER =
 "https://aircraft-siren-api.evangockerman.workers.dev/";
 
+/*
+   Extra detection distance.
+
+   If radius = 25 NM:
+   detection zone = 30 NM
+   alert zone     = 25 NM
+*/
+
+const DETECTION_BUFFER_NM = 5;
+
 let homeLat = 39.96;
 let homeLon = -83.15;
 
 let map;
 let homeMarker;
 let radiusCircle;
+let detectionCircle;
 
 let aircraftMarkers = {};
 
@@ -247,7 +247,7 @@ let loading = false;
 
 map = L.map("map").setView(
   [homeLat, homeLon],
-  5
+  8
 );
 
 L.tileLayer(
@@ -276,27 +276,79 @@ function setLocation(lat, lon) {
     map.removeLayer(radiusCircle);
   }
 
+  if (detectionCircle) {
+    map.removeLayer(detectionCircle);
+  }
+
   homeMarker =
     L.marker([lat, lon])
       .addTo(map)
       .bindPopup("Your location");
 
+  updateCircles();
+
+  map.setView(
+    [lat, lon],
+    8
+  );
+
+  loadAircraft();
+}
+
+
+function updateCircles() {
+
+  const radius =
+    getRadius();
+
+  const detectionRadius =
+    radius +
+    DETECTION_BUFFER_NM;
+
+  if (radiusCircle) {
+    map.removeLayer(radiusCircle);
+  }
+
+  if (detectionCircle) {
+    map.removeLayer(detectionCircle);
+  }
+
+  /*
+     Red = actual siren zone
+  */
+
   radiusCircle =
     L.circle(
-      [lat, lon],
+      [homeLat, homeLon],
       {
-        radius: getRadius() * 1852,
+        radius:
+          radius * 1852,
+
         color: "red",
+
         fillOpacity: 0.08
       }
     ).addTo(map);
 
-  map.setView(
-    [lat, lon],
-    5
-  );
+  /*
+     Orange = 5 NM detection buffer
+  */
 
-  loadAircraft();
+  detectionCircle =
+    L.circle(
+      [homeLat, homeLon],
+      {
+        radius:
+          detectionRadius * 1852,
+
+        color: "orange",
+
+        fillOpacity: 0.02,
+
+        dashArray: "8 8"
+      }
+    ).addTo(map);
+
 }
 
 
@@ -373,21 +425,7 @@ document
   ).textContent =
     radius;
 
-  if (radiusCircle) {
-
-    radiusCircle.setRadius(
-      radius * 1852
-    );
-
-  }
-
-  /*
-     Changing the radius does NOT change
-     the aircraft feed.
-
-     It only changes which aircraft are
-     considered inside the alert zone.
-  */
+  updateCircles();
 
   loadAircraft();
 
@@ -430,7 +468,8 @@ function setStatus(text) {
 
   status.classList.remove("alert");
 
-  status.innerHTML = text;
+  status.innerHTML =
+    text;
 
 }
 
@@ -482,7 +521,7 @@ function distanceNM(
 
 
 /* =========================================================
-   SIREN
+   SIREN ENABLE
    ========================================================= */
 
 async function enableSiren() {
@@ -517,7 +556,7 @@ async function enableSiren() {
   catch (error) {
 
     setStatus(
-      "Could not enable audio: " +
+      "Audio error: " +
       error.message
     );
 
@@ -535,7 +574,7 @@ document
 
 
 /* =========================================================
-   SIREN SOUND
+   SIREN
    ========================================================= */
 
 function playSiren() {
@@ -638,38 +677,6 @@ document
 
 
 /* =========================================================
-   AIRCRAFT ICON
-   ========================================================= */
-
-function makePlaneIcon(
-  inside
-) {
-
-  return L.divIcon({
-
-    className: "",
-
-    html:
-      inside
-      ? '<div class="alertPlaneIcon">✈</div>'
-      : '<div class="planeIcon">✈</div>',
-
-    iconSize:
-      inside
-      ? [32, 32]
-      : [25, 25],
-
-    iconAnchor:
-      inside
-      ? [16, 16]
-      : [12, 12]
-
-  });
-
-}
-
-
-/* =========================================================
    LOAD AIRCRAFT
    ========================================================= */
 
@@ -683,15 +690,18 @@ async function loadAircraft() {
 
   try {
 
+    const detectionRadius =
+      getRadius() +
+      DETECTION_BUFFER_NM;
+
     setStatus(
       "Getting live aircraft data..."
     );
 
     /*
-       Request the entire 250 NM area
-       available through the Worker.
+       Request enough data to cover:
 
-       We display ALL returned aircraft.
+       selected radius + 5 NM
     */
 
     const url =
@@ -700,7 +710,10 @@ async function loadAircraft() {
       encodeURIComponent(homeLat) +
       "&lon=" +
       encodeURIComponent(homeLon) +
-      "&dist=250";
+      "&dist=" +
+      encodeURIComponent(
+        Math.ceil(detectionRadius)
+      );
 
     const response =
       await fetch(
@@ -735,9 +748,7 @@ async function loadAircraft() {
 
   catch (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     setStatus(
       "<b>ADS-B ERROR</b><br>" +
@@ -752,15 +763,19 @@ async function loadAircraft() {
 
 
 /* =========================================================
-   DISPLAY ALL AIRCRAFT
+   DISPLAY AIRCRAFT
    ========================================================= */
 
 function displayAircraft(
   aircraft
 ) {
 
-  const radius =
+  const alertRadius =
     getRadius();
+
+  const detectionRadius =
+    alertRadius +
+    DETECTION_BUFFER_NM;
 
   const currentInside =
     new Set();
@@ -777,7 +792,9 @@ function displayAircraft(
 
   let withPosition = 0;
 
-  let insideCount = 0;
+  let detectedCount = 0;
+
+  let alertCount = 0;
 
 
   /* =======================================================
@@ -799,11 +816,6 @@ function displayAircraft(
           plane.longitude
         );
 
-      /*
-         Aircraft without a position
-         cannot be put on the map.
-      */
-
       if (
         !Number.isFinite(lat) ||
         !Number.isFinite(lon)
@@ -816,10 +828,6 @@ function displayAircraft(
       withPosition++;
 
 
-      /* ===================================================
-         DISTANCE
-         =================================================== */
-
       const distance =
         distanceNM(
           homeLat,
@@ -828,19 +836,39 @@ function displayAircraft(
           lon
         );
 
-      const inside =
-        distance <= radius;
 
-      if (inside) {
+      /*
+         Ignore aircraft beyond:
 
-        insideCount++;
+         selected radius + 5 NM
+      */
+
+      if (
+        distance >
+        detectionRadius
+      ) {
+
+        return;
 
       }
 
+      detectedCount++;
 
-      /* ===================================================
-         ID
-         =================================================== */
+
+      /*
+         Actual alert zone
+      */
+
+      const inside =
+        distance <= alertRadius;
+
+
+      if (inside) {
+
+        alertCount++;
+
+      }
+
 
       const id =
         plane.hex ||
@@ -852,12 +880,9 @@ function displayAircraft(
           lon.toFixed(4)
         );
 
+
       activeMarkers.add(id);
 
-
-      /* ===================================================
-         CALLSIGN
-         =================================================== */
 
       let callsign =
         plane.flight ||
@@ -896,17 +921,10 @@ function displayAircraft(
 
         aircraftMarkers[id] =
           L.marker(
-            [lat, lon],
-            {
-              icon:
-                makePlaneIcon(
-                  inside
-                )
-            }
+            [lat, lon]
           ).addTo(map);
 
       }
-
       else {
 
         aircraftMarkers[id]
@@ -914,12 +932,24 @@ function displayAircraft(
             [lat, lon]
           );
 
+      }
+
+
+      /*
+         Red icon for actual alert-zone aircraft.
+         Orange icon for the 5 NM buffer.
+      */
+
+      if (inside) {
+
         aircraftMarkers[id]
-          .setIcon(
-            makePlaneIcon(
-              inside
-            )
-          );
+          .setOpacity(1);
+
+      }
+      else {
+
+        aircraftMarkers[id]
+          .setOpacity(0.65);
 
       }
 
@@ -956,13 +986,13 @@ function displayAircraft(
 
           (inside
             ? "<br><br><b>ALERT ZONE</b>"
-            : "")
+            : "<br><br>Approaching zone")
 
         );
 
 
       /* ===================================================
-         AIRCRAFT LIST
+         LIST ITEM
          =================================================== */
 
       const item =
@@ -970,10 +1000,20 @@ function displayAircraft(
           "div"
         );
 
-      item.className =
-        inside
-        ? "aircraft alertAircraft"
-        : "aircraft";
+
+      if (inside) {
+
+        item.className =
+          "aircraft alertAircraft";
+
+      }
+
+      else {
+
+        item.className =
+          "aircraft approaching";
+
+      }
 
 
       item.innerHTML =
@@ -984,7 +1024,7 @@ function displayAircraft(
 
         (inside
           ? " — ALERT ZONE"
-          : "") +
+          : " — APPROACHING") +
 
         "<br>" +
 
@@ -1004,7 +1044,7 @@ function displayAircraft(
 
 
       /* ===================================================
-         SAVE INSIDE AIRCRAFT
+         ONLY ACTUAL ALERT-ZONE AIRCRAFT GO HERE
          =================================================== */
 
       if (inside) {
@@ -1018,7 +1058,7 @@ function displayAircraft(
 
 
   /* =======================================================
-     REMOVE AIRCRAFT THAT DISAPPEARED
+     REMOVE OLD MARKERS
      ======================================================= */
 
   Object.keys(
@@ -1043,7 +1083,7 @@ function displayAircraft(
 
 
   /* =======================================================
-     NEW AIRCRAFT ENTERING RADIUS
+     SIREN TRIGGER
      ======================================================= */
 
   const newAircraft =
@@ -1053,6 +1093,13 @@ function displayAircraft(
         !previousInside.has(id)
     );
 
+
+  /*
+     IMPORTANT:
+
+     Only aircraft inside the actual
+     radius can trigger this.
+  */
 
   if (
     sirenEnabled &&
@@ -1076,7 +1123,7 @@ function displayAircraft(
 
       newAircraft.length +
       " aircraft entered your " +
-      radius +
+      alertRadius +
       " NM radius.";
 
   }
@@ -1086,20 +1133,26 @@ function displayAircraft(
     setStatus(
 
       "<b>" +
-      aircraft.length +
-      "</b> aircraft received<br>" +
+      detectedCount +
+      "</b> aircraft detected<br>" +
 
       "<b>" +
-      withPosition +
-      "</b> aircraft with positions<br>" +
+      alertCount +
+      "</b> inside alert radius<br>" +
 
       "<b>" +
-      insideCount +
-      "</b> aircraft within " +
-      radius +
-      " NM" +
+      detectionRadius +
+      " NM</b> maximum detection distance" +
 
       "<div class='debug'>" +
+
+      "Feed received: " +
+      aircraft.length +
+      " aircraft<br>" +
+
+      "Aircraft with positions: " +
+      withPosition +
+      "<br>" +
 
       "Updated: " +
       new Date()
@@ -1119,7 +1172,7 @@ function displayAircraft(
 
 
 /* =========================================================
-   START
+   STARTUP
    ========================================================= */
 
 setLocation(
