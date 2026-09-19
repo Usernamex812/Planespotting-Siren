@@ -2,1295 +2,985 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0,
+               maximum-scale=1.0, user-scalable=no">
 
 <title>Aircraft Siren</title>
 
-<!-- Leaflet map -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
+<link rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
-* {
-  box-sizing: border-box;
-}
+    * {
+        box-sizing: border-box;
+    }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #101418;
-  color: white;
-}
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #111;
+        color: white;
+    }
 
-header {
-  background: #171d23;
-  padding: 18px;
-  border-bottom: 1px solid #303840;
-}
+    #map {
+        height: 55vh;
+        width: 100%;
+    }
 
-h1 {
-  margin: 0;
-  font-size: 24px;
-}
+    #controls {
+        padding: 15px;
+        background: #181818;
+    }
 
-.subtitle {
-  color: #9ca7b2;
-  margin-top: 4px;
-  font-size: 14px;
-}
+    h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+    }
 
-.container {
-  max-width: 1100px;
-  margin: auto;
-  padding: 14px;
-}
+    label {
+        display: block;
+        margin-top: 12px;
+        margin-bottom: 5px;
+    }
 
-.controls {
-  background: #171d23;
-  border: 1px solid #303840;
-  border-radius: 14px;
-  padding: 15px;
-  margin-bottom: 14px;
-}
+    input[type="number"] {
+        width: 48%;
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1px solid #555;
+        background: #222;
+        color: white;
+    }
 
-.control-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-}
+    input[type="range"] {
+        width: 100%;
+    }
 
-.control {
-  flex: 1;
-  min-width: 180px;
-}
+    button {
+        width: 100%;
+        padding: 13px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 9px;
+        font-size: 17px;
+        font-weight: bold;
+    }
 
-label {
-  display: block;
-  color: #aeb8c2;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
+    #locationButton {
+        background: #2878ff;
+        color: white;
+    }
 
-input[type="number"] {
-  width: 100%;
-  padding: 12px;
-  border-radius: 9px;
-  border: 1px solid #3a444d;
-  background: #0f1317;
-  color: white;
-  font-size: 16px;
-}
+    #enableButton {
+        background: #20a060;
+        color: white;
+    }
 
-input[type="range"] {
-  width: 100%;
-}
+    #testButton {
+        background: #555;
+        color: white;
+    }
 
-.value {
-  font-size: 18px;
-  font-weight: bold;
-}
+    #status {
+        margin-top: 12px;
+        padding: 10px;
+        background: #252525;
+        border-radius: 8px;
+        font-size: 14px;
+    }
 
-button {
-  border: none;
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  background: #2b343d;
-  color: white;
-}
+    #aircraftList {
+        max-height: 250px;
+        overflow-y: auto;
+        margin-top: 10px;
+    }
 
-button:active {
-  transform: scale(.98);
-}
+    .aircraft {
+        padding: 10px;
+        border-bottom: 1px solid #333;
+    }
 
-.primary {
-  background: #2675d8;
-}
+    .sirenOn {
+        background: #801515 !important;
+    }
 
-.danger {
-  background: #b52d2d;
-}
-
-.success {
-  background: #287d4c;
-}
-
-#map {
-  height: 55vh;
-  min-height: 350px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid #303840;
-  margin-bottom: 14px;
-}
-
-.status {
-  background: #171d23;
-  border: 1px solid #303840;
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-
-.status-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-#statusText {
-  color: #70b7ff;
-  font-weight: 600;
-}
-
-.aircraft-list {
-  display: grid;
-  gap: 8px;
-}
-
-.aircraft {
-  background: #171d23;
-  border: 1px solid #303840;
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.aircraft strong {
-  font-size: 17px;
-}
-
-.aircraft-details {
-  color: #aeb8c2;
-  font-size: 13px;
-  margin-top: 5px;
-}
-
-.alert {
-  display: none;
-  background: #9c2222;
-  border: 2px solid #e94b4b;
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 14px;
-  animation: pulse 1s infinite;
-}
-
-.alert.active {
-  display: block;
-}
-
-@keyframes pulse {
-  50% {
-    transform: scale(1.01);
-  }
-}
-
-.small {
-  font-size: 12px;
-  color: #89949f;
-  margin-top: 8px;
-}
-
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.slider-row input {
-  flex: 1;
-}
-
-#aircraftCount {
-  font-size: 20px;
-  font-weight: bold;
-}
-
-@media (max-width: 600px) {
-  h1 {
-    font-size: 21px;
-  }
-
-  #map {
-    height: 48vh;
-  }
-
-  button {
-    width: 100%;
-  }
-}
+    .plane-icon {
+        font-size: 25px;
+        text-align: center;
+    }
 </style>
 </head>
 
 <body>
 
-<header>
-  <h1>✈ Aircraft Siren</h1>
-  <div class="subtitle">
-    Live ADS-B proximity alarm
-  </div>
-</header>
+<div id="map"></div>
 
-<div class="container">
+<div id="controls">
 
-  <!-- ALERT -->
-  <div id="alertBox" class="alert">
-    <div style="font-size:20px;font-weight:bold;">
-      AIRCRAFT ENTERED ALERT ZONE
-    </div>
-    <div id="alertAircraft" style="margin-top:6px;"></div>
-  </div>
+    <h1>Aircraft Siren</h1>
 
-  <!-- CONTROLS -->
-  <div class="controls">
+    <label>Latitude</label>
+    <input id="lat" type="number" step="0.000001">
 
-    <div class="control-row">
+    <input id="lon" type="number" step="0.000001">
 
-      <div class="control">
-        <label>Latitude</label>
-        <input
-          id="latInput"
-          type="number"
-          step="0.000001"
-          placeholder="Example: 39.1031"
-        >
-      </div>
-
-      <div class="control">
-        <label>Longitude</label>
-        <input
-          id="lonInput"
-          type="number"
-          step="0.000001"
-          placeholder="Example: -84.5120"
-        >
-      </div>
-
-    </div>
-
-    <br>
-
-    <div class="control-row">
-
-      <button
-        class="primary"
-        onclick="setMyLocation()"
-      >
+    <button id="locationButton">
         Use My Location
-      </button>
-
-      <button
-        onclick="setMapCenter()"
-      >
-        Set Map Center
-      </button>
-
-      <button
-        onclick="refreshAircraft()"
-      >
-        Refresh Now
-      </button>
-
-    </div>
-
-    <br>
+    </button>
 
     <label>
-      Alert radius:
-      <span class="value" id="radiusValue">25 NM</span>
+        Alert radius:
+        <span id="radiusText">25</span> NM
     </label>
 
-    <div class="slider-row">
-      <span>1</span>
-
-      <input
-        id="radiusSlider"
-        type="range"
-        min="1"
-        max="250"
-        value="25"
-      >
-
-      <span>250 NM</span>
-    </div>
-
-    <br>
+    <input id="radius"
+           type="range"
+           min="1"
+           max="250"
+           value="25">
 
     <label>
-      Siren volume:
-      <span class="value" id="volumeValue">80%</span>
+        Siren volume:
+        <span id="volumeText">70</span>%
     </label>
 
-    <div class="slider-row">
-      <span>0</span>
+    <input id="volume"
+           type="range"
+           min="0"
+           max="100"
+           value="70">
 
-      <input
-        id="volumeSlider"
-        type="range"
-        min="0"
-        max="100"
-        value="80"
-      >
-
-      <span>100</span>
-    </div>
-
-    <br>
-
-    <div class="control-row">
-
-      <button
-        id="sirenButton"
-        class="primary"
-        onclick="enableSiren()"
-      >
+    <button id="enableButton">
         Enable Siren
-      </button>
+    </button>
 
-      <button
-        class="success"
-        onclick="testSiren()"
-      >
+    <button id="testButton">
         Test Siren
-      </button>
+    </button>
 
+    <div id="status">
+        Waiting for location...
     </div>
 
-    <div class="small">
-      Safari requires a user tap before websites can play alarm sounds.
-    </div>
-
-  </div>
-
-  <!-- STATUS -->
-  <div class="status">
-
-    <div class="status-line">
-      <div>
-        Status:
-        <span id="statusText">Waiting for location</span>
-      </div>
-
-      <div>
-        Aircraft:
-        <span id="aircraftCount">0</span>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- MAP -->
-  <div id="map"></div>
-
-  <!-- AIRCRAFT -->
-  <div class="aircraft-list" id="aircraftList">
-    <div class="aircraft">
-      No aircraft loaded yet.
-    </div>
-  </div>
+    <div id="aircraftList"></div>
 
 </div>
 
-<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-/* =========================================================
-   SETTINGS
-========================================================= */
-
-let latitude = null;
-let longitude = null;
-
-let radius = 25;
+const WORKER =
+    "https://aircraft-siren-api.evangockerman.workers.dev/";
 
 let map;
 let homeMarker;
 let radiusCircle;
 
+let homeLat = 39.96;
+let homeLon = -83.15;
+
 let aircraftMarkers = {};
 
-let previousAircraft = new Set();
-
-let sirenEnabled = false;
-let sirenPlaying = false;
-
 let audioContext = null;
+let sirenEnabled = false;
 let sirenGain = null;
 
-let refreshTimer = null;
+let insideAircraft = new Set();
+
+let lastAircraftData = [];
 
 
-/* =========================================================
+/* =========================
    MAP
-========================================================= */
+========================= */
 
-map = L.map("map").setView([39.1031, -84.5120], 8);
+map = L.map("map").setView(
+    [homeLat, homeLon],
+    9
+);
 
 L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        attribution: "&copy; OpenStreetMap contributors"
+    }
 ).addTo(map);
 
 
-/* =========================================================
-   RADIUS SLIDER
-========================================================= */
-
-document
-  .getElementById("radiusSlider")
-  .addEventListener("input", function() {
-
-    radius = Number(this.value);
-
-    document.getElementById("radiusValue").textContent =
-      radius + " NM";
-
-    updateRadiusCircle();
-
-    refreshAircraft();
-  });
-
-
-/* =========================================================
-   VOLUME SLIDER
-========================================================= */
-
-document
-  .getElementById("volumeSlider")
-  .addEventListener("input", function() {
-
-    const volume = Number(this.value);
-
-    document.getElementById("volumeValue").textContent =
-      volume + "%";
-
-    if (sirenGain) {
-      sirenGain.gain.value = volume / 100;
-    }
-
-  });
-
-
-/* =========================================================
+/* =========================
    LOCATION
-========================================================= */
+========================= */
 
-function setMyLocation() {
+document.getElementById("lat").value =
+    homeLat;
 
-  if (!navigator.geolocation) {
+document.getElementById("lon").value =
+    homeLon;
 
-    alert("Your browser does not support location.");
+function updateLocation() {
 
-    return;
-  }
+    homeLat =
+        parseFloat(
+            document.getElementById("lat").value
+        );
 
-  document.getElementById("statusText").textContent =
-    "Requesting location...";
+    homeLon =
+        parseFloat(
+            document.getElementById("lon").value
+        );
 
-  navigator.geolocation.getCurrentPosition(
-
-    function(position) {
-
-      latitude = position.coords.latitude;
-      longitude = position.coords.longitude;
-
-      document.getElementById("latInput").value =
-        latitude.toFixed(6);
-
-      document.getElementById("lonInput").value =
-        longitude.toFixed(6);
-
-      map.setView([latitude, longitude], 9);
-
-      updateHomeMarker();
-
-      refreshAircraft();
-
-    },
-
-    function(error) {
-
-      document.getElementById("statusText").textContent =
-        "Location permission denied";
-
-      alert(
-        "Safari could not get your location. " +
-        "You can manually enter latitude and longitude."
-      );
-
-    }
-  );
-}
-
-
-/* =========================================================
-   MANUAL LOCATION
-========================================================= */
-
-function setMapCenter() {
-
-  const lat =
-    Number(document.getElementById("latInput").value);
-
-  const lon =
-    Number(document.getElementById("lonInput").value);
-
-  if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lon) ||
-    lat < -90 ||
-    lat > 90 ||
-    lon < -180 ||
-    lon > 180
-  ) {
-
-    alert("Enter a valid latitude and longitude.");
-
-    return;
-  }
-
-  latitude = lat;
-  longitude = lon;
-
-  map.setView([latitude, longitude], 9);
-
-  updateHomeMarker();
-
-  refreshAircraft();
-}
-
-
-/* =========================================================
-   HOME MARKER
-========================================================= */
-
-function updateHomeMarker() {
-
-  if (
-    latitude === null ||
-    longitude === null
-  ) {
-    return;
-  }
-
-  if (homeMarker) {
-    map.removeLayer(homeMarker);
-  }
-
-  homeMarker = L.marker([
-    latitude,
-    longitude
-  ])
-  .addTo(map)
-  .bindPopup("Alert center");
-
-  updateRadiusCircle();
-}
-
-
-/* =========================================================
-   RADIUS CIRCLE
-========================================================= */
-
-function updateRadiusCircle() {
-
-  if (
-    latitude === null ||
-    longitude === null
-  ) {
-    return;
-  }
-
-  if (radiusCircle) {
-    map.removeLayer(radiusCircle);
-  }
-
-  /*
-    1 nautical mile = 1852 meters
-  */
-
-  radiusCircle = L.circle(
-    [latitude, longitude],
-    {
-      radius: radius * 1852,
-      color: "#2675d8",
-      fillColor: "#2675d8",
-      fillOpacity: 0.08,
-      weight: 2
-    }
-  ).addTo(map);
-
-}
-
-
-/* =========================================================
-   ADSB DATA
-========================================================= */
-
-async function refreshAircraft() {
-
-  if (
-    latitude === null ||
-    longitude === null
-  ) {
-
-    document.getElementById("statusText").textContent =
-      "Set your location first";
-
-    return;
-  }
-
-  document.getElementById("statusText").textContent =
-    "Loading ADS-B...";
-
-  /*
-    ADSB.lol's free radius endpoint.
-
-    Browser CORS can vary, so we first try the direct
-    endpoint. If Safari blocks it, we try a free CORS
-    proxy as a fallback.
-  */
-
-  const directURL =
-    "https://api.adsb.lol/v2/lat/" +
-    encodeURIComponent(latitude) +
-    "/lon/" +
-    encodeURIComponent(longitude) +
-    "/dist/" +
-    encodeURIComponent(radius);
-
-  let data = null;
-
-  try {
-
-    const response =
-      await fetch(directURL);
-
-    if (!response.ok) {
-      throw new Error("ADS-B request failed");
+    if (
+        !Number.isFinite(homeLat) ||
+        !Number.isFinite(homeLon)
+    ) {
+        return;
     }
 
-    data = await response.json();
+    map.setView(
+        [homeLat, homeLon],
+        10
+    );
 
-  } catch (error) {
+    if (homeMarker) {
+        map.removeLayer(homeMarker);
+    }
 
-    /*
-      Fallback for browsers that block the direct
-      cross-origin request.
-    */
+    if (radiusCircle) {
+        map.removeLayer(radiusCircle);
+    }
+
+    homeMarker =
+        L.marker([
+            homeLat,
+            homeLon
+        ])
+        .addTo(map)
+        .bindPopup("Alert location");
+
+    radiusCircle =
+        L.circle(
+            [homeLat, homeLon],
+            {
+                radius:
+                    getRadius() * 1852,
+
+                color: "red",
+                fillOpacity: 0.08
+            }
+        )
+        .addTo(map);
+
+    loadAircraft();
+}
+
+document
+    .getElementById("lat")
+    .addEventListener(
+        "change",
+        updateLocation
+    );
+
+document
+    .getElementById("lon")
+    .addEventListener(
+        "change",
+        updateLocation
+    );
+
+
+document
+    .getElementById("locationButton")
+    .addEventListener(
+        "click",
+        () => {
+
+            if (!navigator.geolocation) {
+
+                setStatus(
+                    "Location is not supported."
+                );
+
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+
+                    document.getElementById(
+                        "lat"
+                    ).value =
+                        position.coords.latitude;
+
+                    document.getElementById(
+                        "lon"
+                    ).value =
+                        position.coords.longitude;
+
+                    updateLocation();
+
+                },
+
+                error => {
+
+                    setStatus(
+                        "Location failed: " +
+                        error.message
+                    );
+
+                },
+
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 30000
+                }
+            );
+
+        }
+    );
+
+
+/* =========================
+   RADIUS
+========================= */
+
+function getRadius() {
+
+    return parseFloat(
+        document.getElementById("radius").value
+    );
+}
+
+document
+    .getElementById("radius")
+    .addEventListener(
+        "input",
+        () => {
+
+            const r =
+                getRadius();
+
+            document.getElementById(
+                "radiusText"
+            ).textContent = r;
+
+            if (radiusCircle) {
+
+                radiusCircle.setRadius(
+                    r * 1852
+                );
+
+            }
+
+            loadAircraft();
+        }
+    );
+
+
+/* =========================
+   VOLUME
+========================= */
+
+function getVolume() {
+
+    return (
+        parseFloat(
+            document.getElementById("volume").value
+        ) / 100
+    );
+}
+
+document
+    .getElementById("volume")
+    .addEventListener(
+        "input",
+        () => {
+
+            document.getElementById(
+                "volumeText"
+            ).textContent =
+                document.getElementById(
+                    "volume"
+                ).value;
+
+            if (sirenGain) {
+
+                sirenGain.gain.value =
+                    getVolume();
+
+            }
+
+        }
+    );
+
+
+/* =========================
+   AUDIO
+========================= */
+
+async function enableAudio() {
+
+    if (!audioContext) {
+
+        audioContext =
+            new (
+                window.AudioContext ||
+                window.webkitAudioContext
+            )();
+
+    }
+
+    if (
+        audioContext.state ===
+        "suspended"
+    ) {
+
+        await audioContext.resume();
+
+    }
+
+    sirenEnabled = true;
+
+    document.getElementById(
+        "enableButton"
+    ).textContent =
+        "Siren Enabled";
+
+    document.getElementById(
+        "enableButton"
+    ).classList.add(
+        "sirenOn"
+    );
+
+    setStatus(
+        "Siren enabled. Monitoring aircraft..."
+    );
+}
+
+
+document
+    .getElementById("enableButton")
+    .addEventListener(
+        "click",
+        enableAudio
+    );
+
+
+function playSiren(
+    seconds = 4
+) {
+
+    if (!audioContext) {
+        return;
+    }
+
+    if (
+        audioContext.state ===
+        "suspended"
+    ) {
+        audioContext.resume();
+    }
+
+    const now =
+        audioContext.currentTime;
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    sirenGain =
+        audioContext.createGain();
+
+    oscillator.type = "sawtooth";
+
+    oscillator.frequency.setValueAtTime(
+        450,
+        now
+    );
+
+    oscillator.frequency.linearRampToValueAtTime(
+        850,
+        now + 1.5
+    );
+
+    oscillator.frequency.linearRampToValueAtTime(
+        450,
+        now + 3
+    );
+
+    oscillator.frequency.linearRampToValueAtTime(
+        850,
+        now + 4.5
+    );
+
+    sirenGain.gain.setValueAtTime(
+        0,
+        now
+    );
+
+    sirenGain.gain.linearRampToValueAtTime(
+        getVolume(),
+        now + 0.1
+    );
+
+    sirenGain.gain.setValueAtTime(
+        getVolume(),
+        now + seconds - 0.2
+    );
+
+    sirenGain.gain.linearRampToValueAtTime(
+        0,
+        now + seconds
+    );
+
+    oscillator.connect(
+        sirenGain
+    );
+
+    sirenGain.connect(
+        audioContext.destination
+    );
+
+    oscillator.start(now);
+
+    oscillator.stop(
+        now + seconds
+    );
+}
+
+
+document
+    .getElementById("testButton")
+    .addEventListener(
+        "click",
+        async () => {
+
+            await enableAudio();
+
+            playSiren(5);
+
+        }
+    );
+
+
+/* =========================
+   DISTANCE
+========================= */
+
+function distanceNM(
+    lat1,
+    lon1,
+    lat2,
+    lon2
+) {
+
+    const R = 3440.065;
+
+    const dLat =
+        (
+            (lat2 - lat1)
+            * Math.PI
+        ) / 180;
+
+    const dLon =
+        (
+            (lon2 - lon1)
+            * Math.PI
+        ) / 180;
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+
+        Math.cos(
+            lat1 * Math.PI / 180
+        ) *
+
+        Math.cos(
+            lat2 * Math.PI / 180
+        ) *
+
+        Math.sin(dLon / 2) ** 2;
+
+    const c =
+        2 *
+        Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+        );
+
+    return R * c;
+}
+
+
+/* =========================
+   STATUS
+========================= */
+
+function setStatus(text) {
+
+    document.getElementById(
+        "status"
+    ).textContent = text;
+
+}
+
+
+/* =========================
+   AIRCRAFT
+========================= */
+
+async function loadAircraft() {
+
+    if (
+        !Number.isFinite(homeLat) ||
+        !Number.isFinite(homeLon)
+    ) {
+        return;
+    }
+
+    const radius =
+        getRadius();
+
+    const url =
+        WORKER +
+        "?lat=" +
+        encodeURIComponent(homeLat) +
+        "&lon=" +
+        encodeURIComponent(homeLon) +
+        "&dist=" +
+        encodeURIComponent(radius);
 
     try {
 
-      const proxyURL =
-        "https://api.cors.lol/?url=" +
-        encodeURIComponent(directURL);
-
-      const response =
-        await fetch(proxyURL);
-
-      if (!response.ok) {
-        throw new Error("Proxy request failed");
-      }
-
-      data = await response.json();
-
-    } catch (proxyError) {
-
-      document.getElementById("statusText").textContent =
-        "ADS-B connection failed";
-
-      console.error(proxyError);
-
-      return;
-    }
-
-  }
-
-
-  const aircraft =
-    Array.isArray(data.ac)
-      ? data.ac
-      : [];
-
-
-  document.getElementById("aircraftCount").textContent =
-    aircraft.length;
-
-  document.getElementById("statusText").textContent =
-    "LIVE • Updated " +
-    new Date().toLocaleTimeString();
-
-
-  processAircraft(aircraft);
-
-}
-
-
-/* =========================================================
-   PROCESS AIRCRAFT
-========================================================= */
-
-function processAircraft(aircraft) {
-
-  const currentAircraft = new Set();
-
-  aircraft.forEach(function(a) {
-
-    if (
-      !a.lat ||
-      !a.lon ||
-      !Number.isFinite(Number(a.lat)) ||
-      !Number.isFinite(Number(a.lon))
-    ) {
-      return;
-    }
-
-    const hex =
-      a.hex || Math.random().toString();
-
-    currentAircraft.add(hex);
-
-    updateAircraftMarker(a, hex);
-
-  });
-
-
-  /*
-    Remove aircraft that disappeared from the API.
-  */
-
-  Object.keys(aircraftMarkers).forEach(function(hex) {
-
-    if (!currentAircraft.has(hex)) {
-
-      map.removeLayer(
-        aircraftMarkers[hex]
-      );
-
-      delete aircraftMarkers[hex];
-
-    }
-
-  });
-
-
-  /*
-    Detect aircraft entering the zone.
-
-    Because the API only returns aircraft INSIDE
-    the selected radius, an aircraft that appears
-    now but wasn't present during the previous
-    poll is considered a new entry.
-  */
-
-  currentAircraft.forEach(function(hex) {
-
-    if (!previousAircraft.has(hex)) {
-
-      const plane =
-        aircraft.find(
-          p => p.hex === hex
+        setStatus(
+            "Loading aircraft..."
         );
 
-      if (plane) {
-        aircraftEntered(plane);
-      }
+        const response =
+            await fetch(
+                url,
+                {
+                    cache: "no-store"
+                }
+            );
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Worker HTTP " +
+                response.status
+            );
+
+        }
+
+        const data =
+            await response.json();
+
+        const aircraft =
+            Array.isArray(data.ac)
+                ? data.ac
+                : [];
+
+        lastAircraftData =
+            aircraft;
+
+        displayAircraft(
+            aircraft
+        );
+
+        setStatus(
+            aircraft.length +
+            " aircraft within " +
+            radius +
+            " NM"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        setStatus(
+            "ADS-B ERROR: " +
+            error.message
+        );
 
     }
 
-  });
-
-
-  previousAircraft =
-    currentAircraft;
-
-
-  updateAircraftList(aircraft);
-
 }
 
 
-/* =========================================================
-   AIRCRAFT MARKER
-========================================================= */
+/* =========================
+   DISPLAY
+========================= */
 
-function updateAircraftMarker(a, hex) {
+function displayAircraft(
+    aircraft
+) {
 
-  const callsign =
-    (a.flight || "UNKNOWN").trim();
+    const currentInside =
+        new Set();
 
-  const altitude =
-    a.alt_baro === "ground"
-      ? "GROUND"
-      : (a.alt_baro ?? "N/A") + " ft";
+    const list =
+        document.getElementById(
+            "aircraftList"
+        );
 
-  const speed =
-    a.gs != null
-      ? Math.round(a.gs) + " kt"
-      : "N/A";
+    list.innerHTML = "";
 
-  const distance =
-    a.dst != null
-      ? Number(a.dst).toFixed(1) + " NM"
-      : "N/A";
-
-  const track =
-    a.track != null
-      ? Math.round(a.track) + "°"
-      : "N/A";
+    const activeMarkers =
+        new Set();
 
 
-  const popup =
+    aircraft.forEach(
+        plane => {
 
-    "<strong>" +
-    callsign +
-    "</strong><br>" +
+            if (
+                plane.lat == null ||
+                plane.lon == null
+            ) {
+                return;
+            }
 
-    "Type: " +
-    (a.t || "Unknown") +
-    "<br>" +
+            const lat =
+                Number(plane.lat);
 
-    "Registration: " +
-    (a.r || "Unknown") +
-    "<br>" +
+            const lon =
+                Number(plane.lon);
 
-    "Altitude: " +
-    altitude +
-    "<br>" +
+            if (
+                !Number.isFinite(lat) ||
+                !Number.isFinite(lon)
+            ) {
+                return;
+            }
 
-    "Speed: " +
-    speed +
-    "<br>" +
+            const hex =
+                plane.hex ||
+                (
+                    plane.icao ||
+                    Math.random()
+                );
 
-    "Distance: " +
-    distance +
-    "<br>" +
+            const distance =
+                distanceNM(
+                    homeLat,
+                    homeLon,
+                    lat,
+                    lon
+                );
 
-    "Track: " +
-    track;
+            if (
+                distance >
+                getRadius()
+            ) {
+                return;
+            }
+
+            currentInside.add(
+                hex
+            );
+
+            activeMarkers.add(
+                hex
+            );
 
 
-  if (!aircraftMarkers[hex]) {
+            /* =================
+               MARKER
+            ================= */
 
-    const icon =
-      L.divIcon({
-        className: "",
-        html:
-          "<div style=\"" +
-          "font-size:22px;" +
-          "transform:rotate(" +
-          (a.track || 0) +
-          "deg);" +
-          "\">✈</div>",
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
+            if (
+                !aircraftMarkers[hex]
+            ) {
+
+                const icon =
+                    L.divIcon({
+                        className: "",
+                        html:
+                            '<div class="plane-icon">✈</div>',
+                        iconSize: [
+                            30,
+                            30
+                        ],
+                        iconAnchor: [
+                            15,
+                            15
+                        ]
+                    });
+
+                aircraftMarkers[hex] =
+                    L.marker(
+                        [lat, lon],
+                        {
+                            icon: icon
+                        }
+                    )
+                    .addTo(map);
+
+            } else {
+
+                aircraftMarkers[hex]
+                    .setLatLng(
+                        [lat, lon]
+                    );
+
+            }
 
 
-    aircraftMarkers[hex] =
-      L.marker(
-        [a.lat, a.lon],
-        {
-          icon: icon
+            const callsign =
+                (
+                    plane.flight ||
+                    plane.callsign ||
+                    "Unknown"
+                ).trim();
+
+            const altitude =
+                plane.alt_baro != null
+                    ? Number(
+                        plane.alt_baro
+                      ).toLocaleString()
+                      + " ft"
+                    : "Unknown";
+
+            const speed =
+                plane.gs != null
+                    ? Math.round(
+                        Number(plane.gs)
+                      )
+                      + " kt"
+                    : "Unknown";
+
+            aircraftMarkers[hex]
+                .bindPopup(
+                    "<b>" +
+                    callsign +
+                    "</b><br>" +
+
+                    "Distance: " +
+                    distance.toFixed(1) +
+                    " NM<br>" +
+
+                    "Altitude: " +
+                    altitude +
+                    "<br>" +
+
+                    "Speed: " +
+                    speed
+                );
+
+
+            /* =================
+               LIST
+            ================= */
+
+            const item =
+                document.createElement(
+                    "div"
+                );
+
+            item.className =
+                "aircraft";
+
+            item.innerHTML =
+                "<b>" +
+                callsign +
+                "</b><br>" +
+
+                distance.toFixed(1) +
+                " NM · " +
+
+                altitude +
+                " · " +
+
+                speed;
+
+            list.appendChild(
+                item
+            );
+
         }
-      )
-      .addTo(map)
-      .bindPopup(popup);
-
-  } else {
-
-    aircraftMarkers[hex]
-      .setLatLng([
-        a.lat,
-        a.lon
-      ])
-      .setPopupContent(popup);
-
-  }
-
-}
+    );
 
 
-/* =========================================================
-   AIRCRAFT LIST
-========================================================= */
+    /* =========================
+       REMOVE OLD MARKERS
+    ========================= */
 
-function updateAircraftList(aircraft) {
+    Object.keys(
+        aircraftMarkers
+    ).forEach(
+        hex => {
 
-  const list =
-    document.getElementById("aircraftList");
+            if (
+                !activeMarkers.has(hex)
+            ) {
 
-  list.innerHTML = "";
+                map.removeLayer(
+                    aircraftMarkers[hex]
+                );
 
+                delete aircraftMarkers[
+                    hex
+                ];
 
-  if (aircraft.length === 0) {
+            }
 
-    list.innerHTML =
-      '<div class="aircraft">' +
-      'No aircraft currently inside the alert radius.' +
-      '</div>';
-
-    return;
-  }
-
-
-  /*
-    Closest first.
-  */
-
-  aircraft.sort(function(a, b) {
-
-    return (a.dst || 9999) -
-           (b.dst || 9999);
-
-  });
+        }
+    );
 
 
-  aircraft.forEach(function(a) {
+    /* =========================
+       NEW AIRCRAFT ALERT
+    ========================= */
 
-    const callsign =
-      (a.flight || "UNKNOWN").trim();
+    if (
+        sirenEnabled
+    ) {
 
-    const altitude =
-      a.alt_baro === "ground"
-        ? "GROUND"
-        : (a.alt_baro ?? "N/A") + " ft";
+        const newlyEntered =
+            [...currentInside]
+            .filter(
+                hex =>
+                    !insideAircraft.has(
+                        hex
+                    )
+            );
 
-    const distance =
-      a.dst != null
-        ? Number(a.dst).toFixed(1) + " NM"
-        : "N/A";
+        if (
+            newlyEntered.length > 0
+        ) {
 
-    const speed =
-      a.gs != null
-        ? Math.round(a.gs) + " kt"
-        : "N/A";
+            playSiren(6);
 
+            setStatus(
+                "AIRCRAFT ENTERED ALERT ZONE — " +
+                newlyEntered.length +
+                " new aircraft"
+            );
 
-    const div =
-      document.createElement("div");
+        }
 
-    div.className = "aircraft";
+    }
 
-    div.innerHTML =
-      "<strong>" +
-      callsign +
-      "</strong>" +
-
-      '<div class="aircraft-details">' +
-
-      (a.t || "Unknown aircraft") +
-      " • " +
-
-      distance +
-      " • " +
-
-      altitude +
-      " • " +
-
-      speed +
-
-      "</div>";
-
-
-    list.appendChild(div);
-
-  });
+    insideAircraft =
+        currentInside;
 
 }
 
 
-/* =========================================================
-   AIRCRAFT ENTERED
-========================================================= */
+/* =========================
+   START
+========================= */
 
-function aircraftEntered(a) {
+updateLocation();
 
-  const callsign =
-    (a.flight || "UNKNOWN").trim();
+loadAircraft();
 
-  const distance =
-    a.dst != null
-      ? Number(a.dst).toFixed(1)
-      : "?";
-
-  const altitude =
-    a.alt_baro === "ground"
-      ? "GROUND"
-      : (a.alt_baro ?? "UNKNOWN");
-
-
-  document.getElementById(
-    "alertAircraft"
-  ).innerHTML =
-
-    "<strong>" +
-    callsign +
-    "</strong><br>" +
-
-    (a.t || "Unknown aircraft") +
-    " • " +
-
-    distance +
-    " NM • " +
-
-    altitude +
-    " ft";
-
-
-  document
-    .getElementById("alertBox")
-    .classList.add("active");
-
-
-  if (sirenEnabled) {
-
-    playSiren();
-
-  }
-
-
-  /*
-    Automatically remove the visual alert
-    after 8 seconds.
-  */
-
-  setTimeout(function() {
-
-    document
-      .getElementById("alertBox")
-      .classList.remove("active");
-
-  }, 8000);
-
-}
-
-
-/* =========================================================
-   SIREN AUDIO
-========================================================= */
-
-function createAudio() {
-
-  if (audioContext) {
-    return;
-  }
-
-  audioContext =
-    new (
-      window.AudioContext ||
-      window.webkitAudioContext
-    )();
-
-
-  sirenGain =
-    audioContext.createGain();
-
-  sirenGain.gain.value =
-    Number(
-      document.getElementById(
-        "volumeSlider"
-      ).value
-    ) / 100;
-
-  sirenGain.connect(
-    audioContext.destination
-  );
-
-}
-
-
-/* =========================================================
-   ENABLE SIREN
-========================================================= */
-
-async function enableSiren() {
-
-  createAudio();
-
-  if (
-    audioContext.state === "suspended"
-  ) {
-
-    await audioContext.resume();
-
-  }
-
-  sirenEnabled = true;
-
-  document.getElementById(
-    "sirenButton"
-  ).textContent =
-    "Siren Enabled ✓";
-
-  document.getElementById(
-    "sirenButton"
-  ).className =
-    "success";
-
-}
-
-
-/* =========================================================
-   TEST SIREN
-========================================================= */
-
-async function testSiren() {
-
-  await enableSiren();
-
-  playSiren();
-
-}
-
-
-/* =========================================================
-   OLD AIR-RAID STYLE SIREN
-========================================================= */
-
-function playSiren() {
-
-  if (
-    sirenPlaying ||
-    !audioContext
-  ) {
-    return;
-  }
-
-  sirenPlaying = true;
-
-
-  const oscillator =
-    audioContext.createOscillator();
-
-
-  const gain =
-    audioContext.createGain();
-
-
-  oscillator.type = "sawtooth";
-
-
-  oscillator.connect(gain);
-
-  gain.connect(
-    audioContext.destination
-  );
-
-
-  const now =
-    audioContext.currentTime;
-
-
-  const volume =
-    Number(
-      document.getElementById(
-        "volumeSlider"
-      ).value
-    ) / 100;
-
-
-  gain.gain.setValueAtTime(
-    0,
-    now
-  );
-
-
-  gain.gain.linearRampToValueAtTime(
-    0.45 * volume,
-    now + 0.15
-  );
-
-
-  /*
-    Alternating pitch produces
-    the classic rising/falling siren.
-  */
-
-  oscillator.frequency.setValueAtTime(
-    450,
-    now
-  );
-
-
-  oscillator.frequency.linearRampToValueAtTime(
-    900,
-    now + 1.1
-  );
-
-
-  oscillator.frequency.linearRampToValueAtTime(
-    450,
-    now + 2.2
-  );
-
-
-  oscillator.frequency.linearRampToValueAtTime(
-    900,
-    now + 3.3
-  );
-
-
-  oscillator.frequency.linearRampToValueAtTime(
-    450,
-    now + 4.4
-  );
-
-
-  oscillator.stop(
-    now + 4.5
-  );
-
-
-  oscillator.onended =
-    function() {
-
-      sirenPlaying = false;
-
-    };
-
-  oscillator.start();
-
-}
-
-
-/* =========================================================
-   AUTOMATIC REFRESH
-========================================================= */
-
-/*
-  Poll every 10 seconds.
-
-  This is deliberately not extremely frequent because
-  the public ADSB.lol API is shared infrastructure and
-  its rate limits are dynamic.
-*/
-
-refreshTimer =
-  setInterval(
-    refreshAircraft,
+setInterval(
+    loadAircraft,
     10000
-  );
-
-
-/* =========================================================
-   INITIAL MAP CENTER
-========================================================= */
-
-map.setView(
-  [39.1031, -84.5120],
-  8
 );
 
 </script>
